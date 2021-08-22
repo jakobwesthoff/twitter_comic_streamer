@@ -10,7 +10,6 @@ use rand::seq::SliceRandom;
 use rocket::http::ContentType;
 use rocket::response::content;
 use serde::Deserialize;
-use std::cmp::max;
 use std::io::Cursor;
 use std::sync::Arc;
 use std::time::Duration;
@@ -91,7 +90,7 @@ impl Comic {
 }
 
 #[derive(Debug, Clone)]
-struct ComicStrip {
+pub struct ComicStrip {
     id: u64,
     comics: Vec<Comic>,
     created_at: DateTime<chrono::Utc>,
