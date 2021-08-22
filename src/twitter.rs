@@ -102,7 +102,9 @@ async fn refresh_user_comic_collection(collection: &UserComicCollection) -> User
         if let Some(media) = &tweet.entities.media {
             let mut comics: Vec<Comic> = vec![];
             for entry in media {
-                comics.push(Comic::new(entry.media_url.clone()));
+                let url = entry.media_url.clone();
+                println!(" -> {}", url);
+                comics.push(Comic::new(url));
             }
             comic_strips.push(Arc::new(ComicStrip {
                 id: tweet.id,
@@ -166,13 +168,8 @@ pub async fn twitter_refresh_task(collections: Arc<Vec<Mutex<UserComicCollection
 
         for collection_mut in (*collections).iter() {
             let mut collection = collection_mut.lock().await;
-            println!("Loading images from: {:?}", collection.user_id);
+            println!("Loading images for: {:?}", collection.user_id);
             *collection = refresh_user_comic_collection(&collection).await;
-            for comic_strip in collection.comic_strips.iter() {
-                for comic in comic_strip.comics.iter() {
-                    println!(" -> {}", comic.url);
-                }
-            }
         }
 
         sleep(Duration::from_secs(CONFIG.get().twitter_refresh_interval)).await;
