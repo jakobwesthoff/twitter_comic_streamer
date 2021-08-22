@@ -2,6 +2,7 @@ use chrono::DateTime;
 use egg_mode::tweet::Timeline;
 use egg_mode::user::UserID;
 use egg_mode::Token;
+use image::DynamicImage;
 use rand::seq::SliceRandom;
 use rocket::http::ContentType;
 use rocket::response::content;
@@ -51,15 +52,51 @@ fn user_timeline(user_id: UserID) -> Timeline {
 
 #[derive(Debug, Clone)]
 struct Comic {
+    pub url: String,
+    image: state::Storage<Arc<DynamicImage>>,
+}
+
+impl Comic {
+    pub fn new(url: String) -> Self {
+        Comic {
+            url,
+            image: state::Storage::new(),
+        }
+    }
+
+    pub async fn image(&self) -> Arc<DynamicImage> {
+        if None == self.image.try_get() {
+            // This could essentially happen multiple times in parallel while
+            // loading is in progress. As it only would cause more than needed
+            // fetching and processing we ignore this case here.
+            // FIXME: Maybe use an RWLock?
+            println!("Fetching image: {}", self.url);
+            let response = reqwest::get(self.url.as_str()).await.unwrap();
+            let in_bytes = response.bytes().await.unwrap();
+            let img = image::io::Reader::new(Cursor::new(in_bytes))
+                .with_guessed_format()
+                .unwrap()
+                .decode()
+                .unwrap();
+
+            self.image.set(Arc::new(img));
+        }
+
+        self.image.get().clone()
+    }
+}
+
+#[derive(Debug, Clone)]
+struct ComicStrip {
     id: u64,
-    urls: Vec<String>,
+    comics: Vec<Comic>,
     created_at: DateTime<chrono::Utc>,
 }
 
 #[derive(Clone)]
 struct UserComicCollection {
     user_id: UserID,
-    comics: Vec<Comic>,
+    comic_strips: Vec<Arc<ComicStrip>>,
     max_id: Option<u64>,
     max_amount: usize,
 }
@@ -71,7 +108,7 @@ async fn refresh_user_comic_collection(collection: &UserComicCollection) -> User
 
     let (timeline, feed) = timeline.await.unwrap();
 
-    let mut comics: Vec<Comic> = collection.comics.clone();
+    let mut comic_strips = collection.comic_strips.clone();
     let mut ids = collection.comic_ids();
 
     println!("Received {} tweets: processing...", feed.len());
@@ -81,15 +118,15 @@ async fn refresh_user_comic_collection(collection: &UserComicCollection) -> User
             continue;
         }
         if let Some(media) = &tweet.entities.media {
-            let mut urls: Vec<String> = vec![];
+            let mut comics: Vec<Comic> = vec![];
             for entry in media {
-                urls.push(entry.media_url.clone());
+                comics.push(Comic::new(entry.media_url.clone()));
             }
-            comics.push(Comic {
+            comic_strips.push(Arc::new(ComicStrip {
                 id: tweet.id,
                 created_at: tweet.created_at,
-                urls,
-            });
+                comics,
+            }));
 
             ids.push(tweet.id);
         }
@@ -104,14 +141,16 @@ async fn refresh_user_comic_collection(collection: &UserComicCollection) -> User
         user_id: collection.user_id.clone(),
         max_id: new_max_id,
         max_amount: collection.max_amount,
-        comics,
+        comic_strips,
     })
 }
 
 fn apply_collection_constraints(mut collection: UserComicCollection) -> UserComicCollection {
-    collection.comics.sort_by_key(|comic| comic.created_at);
-    collection.comics = collection
-        .comics
+    collection
+        .comic_strips
+        .sort_by_key(|comic| comic.created_at);
+    collection.comic_strips = collection
+        .comic_strips
         .into_iter()
         .rev()
         .take(collection.max_amount)
@@ -130,12 +169,12 @@ impl UserComicCollection {
             user_id,
             max_amount,
             max_id: None,
-            comics: vec![],
+            comic_strips: vec![],
         }
     }
 
     fn comic_ids(&self) -> Vec<u64> {
-        self.comics.iter().map(|comic| comic.id).collect()
+        self.comic_strips.iter().map(|comic| comic.id).collect()
     }
 }
 
@@ -147,9 +186,9 @@ async fn twitter_refresh_task(collections: Arc<Vec<Mutex<UserComicCollection>>>)
             let mut collection = collection_mut.lock().await;
             println!("Loading images from: {:?}", collection.user_id);
             *collection = refresh_user_comic_collection(&collection).await;
-            for comic in collection.comics.iter() {
-                for url in comic.urls.iter() {
-                    println!(" -> {}", url);
+            for comic_strip in collection.comic_strips.iter() {
+                for comic in comic_strip.comics.iter() {
+                    println!(" -> {}", comic.url);
                 }
             }
         }
@@ -158,17 +197,17 @@ async fn twitter_refresh_task(collections: Arc<Vec<Mutex<UserComicCollection>>>)
     }
 }
 
-async fn random_comic() -> Option<Comic> {
+async fn random_comic() -> Option<Arc<ComicStrip>> {
     let collections = COLLECTION_ARC.get();
     let mut collection_refs: Vec<&Mutex<UserComicCollection>> = (*collections).iter().collect();
     collection_refs.shuffle(&mut rand::thread_rng());
 
     for shuffled_ref in collection_refs {
         let locked_collection = shuffled_ref.lock().await;
-        if locked_collection.comics.len() > 0 {
+        if locked_collection.comic_strips.len() > 0 {
             return Some(
                 locked_collection
-                    .comics
+                    .comic_strips
                     .choose(&mut rand::thread_rng())
                     .unwrap()
                     .clone(),
@@ -179,17 +218,10 @@ async fn random_comic() -> Option<Comic> {
     return None;
 }
 
-async fn image_data(url: &String) -> Vec<u8> {
-    let response = reqwest::get(url).await.unwrap();
-    let in_bytes = response.bytes().await.unwrap();
-    let img = image::io::Reader::new(Cursor::new(in_bytes))
-        .with_guessed_format()
-        .unwrap()
-        .decode()
-        .unwrap();
-
+async fn png_image_data(image: &DynamicImage) -> Vec<u8> {
     let mut out_bytes: Vec<u8> = Vec::new();
-    img.write_to(&mut out_bytes, image::ImageOutputFormat::Png)
+    image
+        .write_to(&mut out_bytes, image::ImageOutputFormat::Png)
         .unwrap();
 
     out_bytes
@@ -200,7 +232,7 @@ async fn comic() -> Option<content::Custom<Vec<u8>>> {
     if let Some(comic) = random_comic().await {
         return Some(content::Custom(
             ContentType::PNG,
-            image_data(&comic.urls[0]).await,
+            png_image_data(&*comic.comics[0].image().await).await,
         ));
     }
 
