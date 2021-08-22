@@ -1,4 +1,7 @@
+mod composition;
+
 use chrono::DateTime;
+use composition::create_composition_image;
 use egg_mode::tweet::Timeline;
 use egg_mode::user::UserID;
 use egg_mode::Token;
@@ -197,25 +200,27 @@ async fn twitter_refresh_task(collections: Arc<Vec<Mutex<UserComicCollection>>>)
     }
 }
 
-async fn random_comic() -> Option<Arc<ComicStrip>> {
+pub async fn random_comic_strips(max_amount: usize) -> Vec<Arc<ComicStrip>> {
     let collections = COLLECTION_ARC.get();
     let mut collection_refs: Vec<&Mutex<UserComicCollection>> = (*collections).iter().collect();
     collection_refs.shuffle(&mut rand::thread_rng());
 
+    let mut chosen_ones = vec![];
+
     for shuffled_ref in collection_refs {
         let locked_collection = shuffled_ref.lock().await;
         if locked_collection.comic_strips.len() > 0 {
-            return Some(
+            chosen_ones.push(
                 locked_collection
                     .comic_strips
                     .choose(&mut rand::thread_rng())
                     .unwrap()
                     .clone(),
-            );
+            )
         }
     }
 
-    return None;
+    return chosen_ones;
 }
 
 async fn png_image_data(image: &DynamicImage) -> Vec<u8> {
@@ -229,14 +234,23 @@ async fn png_image_data(image: &DynamicImage) -> Vec<u8> {
 
 #[rocket::get("/comic")]
 async fn comic() -> Option<content::Custom<Vec<u8>>> {
-    if let Some(comic) = random_comic().await {
+    let comic_strips = random_comic_strips(1).await;
+    if comic_strips.len() > 0 {
         return Some(content::Custom(
             ContentType::PNG,
-            png_image_data(&*comic.comics[0].image().await).await,
+            png_image_data(&*comic_strips[0].comics[0].image().await).await,
         ));
     }
 
     return None;
+}
+
+#[rocket::get("/composition")]
+async fn comic_composition() -> Option<content::Custom<Vec<u8>>> {
+    return Some(content::Custom(
+        ContentType::PNG,
+        png_image_data(&create_composition_image().await).await,
+    ));
 }
 
 static CONFIG: state::Storage<Config> = state::Storage::new();
@@ -261,7 +275,7 @@ async fn main() {
     tokio::spawn(twitter_refresh_task(COLLECTION_ARC.get().clone()));
 
     rocket::build()
-        .mount("/", rocket::routes![comic])
+        .mount("/", rocket::routes![comic, comic_composition])
         .launch()
         .await
         .unwrap();
