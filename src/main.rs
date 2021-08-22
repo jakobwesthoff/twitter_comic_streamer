@@ -10,6 +10,7 @@ use rand::seq::SliceRandom;
 use rocket::http::ContentType;
 use rocket::response::content;
 use serde::Deserialize;
+use std::cmp::max;
 use std::io::Cursor;
 use std::sync::Arc;
 use std::time::Duration;
@@ -106,7 +107,8 @@ struct UserComicCollection {
 
 async fn refresh_user_comic_collection(collection: &UserComicCollection) -> UserComicCollection {
     let timeline = user_timeline(collection.user_id.clone())
-        .with_page_size(collection.max_amount as i32 * 3)
+//        .with_page_size(collection.max_amount as i32 * 3)
+        .with_page_size(200)
         .older(collection.max_id);
 
     let (timeline, feed) = timeline.await.unwrap();
@@ -164,7 +166,7 @@ fn apply_collection_constraints(mut collection: UserComicCollection) -> UserComi
 
 impl UserComicCollection {
     fn new(user_id: UserID) -> Self {
-        Self::new_with_max_amount(user_id, 10)
+        Self::new_with_max_amount(user_id, 100)
     }
 
     fn new_with_max_amount(user_id: UserID, max_amount: usize) -> Self {
@@ -200,27 +202,23 @@ async fn twitter_refresh_task(collections: Arc<Vec<Mutex<UserComicCollection>>>)
     }
 }
 
-pub async fn random_comic_strips(max_amount: usize) -> Vec<Arc<ComicStrip>> {
+pub async fn random_comic_strips() -> Vec<Arc<ComicStrip>> {
     let collections = COLLECTION_ARC.get();
     let mut collection_refs: Vec<&Mutex<UserComicCollection>> = (*collections).iter().collect();
     collection_refs.shuffle(&mut rand::thread_rng());
 
-    let mut chosen_ones = vec![];
-
     for shuffled_ref in collection_refs {
         let locked_collection = shuffled_ref.lock().await;
-        if locked_collection.comic_strips.len() > 0 {
-            chosen_ones.push(
-                locked_collection
-                    .comic_strips
-                    .choose(&mut rand::thread_rng())
-                    .unwrap()
-                    .clone(),
-            )
+        if locked_collection.comic_strips.len() == 0 {
+            continue;
         }
+
+        let mut strips = locked_collection.comic_strips.clone();
+        strips.shuffle(&mut rand::thread_rng());
+        return strips;
     }
 
-    return chosen_ones;
+    return vec![];
 }
 
 async fn png_image_data(image: &DynamicImage) -> Vec<u8> {
@@ -234,7 +232,7 @@ async fn png_image_data(image: &DynamicImage) -> Vec<u8> {
 
 #[rocket::get("/comic")]
 async fn comic() -> Option<content::Custom<Vec<u8>>> {
-    let comic_strips = random_comic_strips(1).await;
+    let comic_strips = random_comic_strips().await;
     if comic_strips.len() > 0 {
         return Some(content::Custom(
             ContentType::PNG,
