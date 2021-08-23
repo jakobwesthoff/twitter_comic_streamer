@@ -123,7 +123,7 @@ fn quantize_pixel_3bit(pixel: u8) -> (u8, u8) {
 }
 
 #[inline(always)]
-fn get_pixel(image: &ImageBuffer<Luma<u8>, Vec<u8>>, x: u32, y: u32) -> u8 {
+pub fn get_pixel(image: &ImageBuffer<Luma<u8>, Vec<u8>>, x: u32, y: u32) -> u8 {
   image.get_pixel(x, y).0[0]
 }
 

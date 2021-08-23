@@ -60,10 +60,10 @@ fn png_image_data(image: &DynamicImage) -> Vec<u8> {
   out_bytes
 }
 
-fn inkplate_image_data(image: &DynamicImage) -> Vec<u8> {
+fn inkplate_png_image_data(image: &DynamicImage) -> Vec<u8> {
   let mut out_bytes: Vec<u8> = Vec::new();
 
-  let dithered = dithering::quantize_to_3bit(image, dithering::atkinson());
+  let dithered = dithering::quantize_to_3bit(image, dithering::jarvis_judice_ninke());
 
   DynamicImage::ImageLuma8(dithered)
     .write_to(&mut out_bytes, image::ImageOutputFormat::Png)
@@ -72,33 +72,73 @@ fn inkplate_image_data(image: &DynamicImage) -> Vec<u8> {
   out_bytes
 }
 
-#[rocket::get("/comic")]
-async fn comic() -> Option<content::Custom<Vec<u8>>> {
-  let comic_strips = random_comic_strips().await;
-  if comic_strips.len() > 0 {
-    return Some(content::Custom(
-      ContentType::PNG,
-      png_image_data(&*comic_strips[0].comics[0].image().await),
-    ));
-  }
-
-  return None;
+#[inline(always)]
+fn is_odd(value: u32) -> bool {
+  value & 0x1 == 0x1
 }
 
-#[rocket::get("/composition")]
-async fn comic_composition() -> Option<content::Custom<Vec<u8>>> {
+#[inline(always)]
+fn is_even(value: u32) -> bool {
+  !is_odd(value)
+}
+
+fn inkplate_raw_image_data(image: &DynamicImage) -> Vec<u8> {
+  let dithered = dithering::quantize_to_3bit(image, dithering::jarvis_judice_ninke());
+  let (width, height) = dithered.dimensions();
+
+  // Minimize possible reallocations
+  let mut out_bytes: Vec<u8> = Vec::with_capacity((width * height / 2) as usize);
+
+  // We are encoding 2 3bit pixels per bit one in the upper byte, one in the
+  // lower. Furthermore we are always starting a new byte at the beginning of
+  // each row. Therefore the last one might need padding if the width is odd
+  let odd_width = is_odd(width);
+
+  for y in 0..height {
+    let mut current_byte: u8 = 0x0;
+    for x in 0..width {
+      let p = dithering::get_pixel(&dithered, x, y);
+
+      if is_odd(x) {
+        // First of two pixels (high nible)
+        current_byte = p & 0xf0
+      } else {
+        // Second of two pixels (low nible)
+        current_byte = current_byte | (p >> 4);
+
+        // Write finished byte
+        out_bytes.push(current_byte);
+      }
+
+      if odd_width && x == width - 1 {
+        // Write out last byte with padding before switching lines.
+        out_bytes.push(current_byte);
+      }
+    }
+  }
+
+  out_bytes
+}
+
+#[rocket::get("/comic/color")]
+async fn comic_color() -> Option<content::Custom<Vec<u8>>> {
   return Some(content::Custom(
     ContentType::PNG,
     png_image_data(&create_composition_image().await),
   ));
 }
 
-#[rocket::get("/inkplate")]
-async fn comic_inkplate() -> Option<content::Custom<Vec<u8>>> {
+#[rocket::get("/comic/grayscale")]
+async fn comic_grayscale() -> Option<content::Custom<Vec<u8>>> {
   return Some(content::Custom(
     ContentType::PNG,
-    inkplate_image_data(&create_composition_image().await),
+    inkplate_png_image_data(&create_composition_image().await),
   ));
+}
+
+#[rocket::get("/comic/inkplate")]
+async fn comic_inkplate() -> Option<Vec<u8>> {
+  return Some(inkplate_raw_image_data(&create_composition_image().await));
 }
 
 static CONFIG: state::Storage<Config> = state::Storage::new();
@@ -125,7 +165,7 @@ async fn main() {
   rocket::build()
     .mount(
       "/",
-      rocket::routes![comic, comic_composition, comic_inkplate],
+      rocket::routes![comic_color, comic_grayscale, comic_inkplate],
     )
     .launch()
     .await
