@@ -20,7 +20,8 @@ imageproc = "0.22.0"
 state = "0.5.2"
 rand = "0.8.4" 
 
-# [profile.release]
+[profile.release]
+panic = "abort"
 # lto = true
 # codegen-units = 1
 # incremental = false
