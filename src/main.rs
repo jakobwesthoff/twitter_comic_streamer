@@ -1,12 +1,11 @@
 mod composition;
-mod inkplate;
+mod dithering;
 mod twitter;
 
 use composition::create_composition_image;
 use egg_mode::user::UserID;
 use egg_mode::Token;
 use image::DynamicImage;
-use inkplate::{apply_error_diffusion, Dithering};
 use rand::seq::SliceRandom;
 use rocket::http::ContentType;
 use rocket::response::content;
@@ -64,8 +63,7 @@ fn png_image_data(image: &DynamicImage) -> Vec<u8> {
 fn inkplate_image_data(image: &DynamicImage) -> Vec<u8> {
   let mut out_bytes: Vec<u8> = Vec::new();
 
-  let grayscale = image.grayscale().to_luma8();
-  let dithered = apply_error_diffusion(grayscale, Dithering::floyd_steinberg());
+  let dithered = dithering::quantize_to_3bit(image, dithering::atkinson());
 
   DynamicImage::ImageLuma8(dithered)
     .write_to(&mut out_bytes, image::ImageOutputFormat::Png)
