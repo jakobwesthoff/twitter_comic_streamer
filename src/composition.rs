@@ -118,9 +118,9 @@ async fn fill_row(
         if row_width + fit_rectangle.w > row_space.w {
             // This image does not fit anymore
             // stop here
-            // break;
+            break;
             // alternatively try other images of same artist
-            continue;
+            // continue;
         }
 
         let width_advance = fit_rectangle.w + COMPOSITION_MARGIN;
@@ -163,9 +163,9 @@ async fn fill_column(
         if column_height + fit_rectangle.h > column_space.h {
             // This image does not fit anymore
             // stop here
-            // break;
+            break;
             // alternatively try other images of same artist
-            continue;
+            // continue;
         }
 
         let height_advance = fit_rectangle.h + COMPOSITION_MARGIN;
@@ -176,6 +176,11 @@ async fn fill_column(
         });
         free_space.h -= height_advance;
         free_space.y += height_advance;
+    }
+
+    if draw_instructions.len() == 0 {
+        // No match at all. Calculations would cause overflow. Just return early
+        return vec![];
     }
 
     // Center the column
