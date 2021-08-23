@@ -18,89 +18,89 @@ use twitter::{access_token, twitter_refresh_task, UserComicCollection};
 
 #[derive(Deserialize, Debug)]
 struct Config {
-    consumer_key: String,
-    consumer_secret: String,
-    access_token: String,
-    access_token_secret: String,
-    twitter_usernames: Vec<String>,
-    twitter_refresh_interval: u64,
+  consumer_key: String,
+  consumer_secret: String,
+  access_token: String,
+  access_token_secret: String,
+  twitter_usernames: Vec<String>,
+  twitter_refresh_interval: u64,
 }
 
 fn env_config() -> Config {
-    match envy::from_env::<Config>() {
-        Ok(c) => c,
-        Err(error) => panic!("{:#?}", error),
-    }
+  match envy::from_env::<Config>() {
+    Ok(c) => c,
+    Err(error) => panic!("{:#?}", error),
+  }
 }
 
 pub async fn random_comic_strips() -> Vec<Arc<ComicStrip>> {
-    let collections = COLLECTION_ARC.get();
-    let mut collection_refs: Vec<&Mutex<UserComicCollection>> = (*collections).iter().collect();
-    collection_refs.shuffle(&mut rand::thread_rng());
+  let collections = COLLECTION_ARC.get();
+  let mut collection_refs: Vec<&Mutex<UserComicCollection>> = (*collections).iter().collect();
+  collection_refs.shuffle(&mut rand::thread_rng());
 
-    for shuffled_ref in collection_refs {
-        let locked_collection = shuffled_ref.lock().await;
-        if locked_collection.comic_strips.len() == 0 {
-            continue;
-        }
-
-        let mut strips = locked_collection.comic_strips.clone();
-        strips.shuffle(&mut rand::thread_rng());
-        return strips;
+  for shuffled_ref in collection_refs {
+    let locked_collection = shuffled_ref.lock().await;
+    if locked_collection.comic_strips.len() == 0 {
+      continue;
     }
 
-    return vec![];
+    let mut strips = locked_collection.comic_strips.clone();
+    strips.shuffle(&mut rand::thread_rng());
+    return strips;
+  }
+
+  return vec![];
 }
 
 fn png_image_data(image: &DynamicImage) -> Vec<u8> {
-    let mut out_bytes: Vec<u8> = Vec::new();
-    image
-        .write_to(&mut out_bytes, image::ImageOutputFormat::Png)
-        .unwrap();
+  let mut out_bytes: Vec<u8> = Vec::new();
+  image
+    .write_to(&mut out_bytes, image::ImageOutputFormat::Png)
+    .unwrap();
 
-    out_bytes
+  out_bytes
 }
 
 fn inkplate_image_data(image: &DynamicImage) -> Vec<u8> {
-    let mut out_bytes: Vec<u8> = Vec::new();
+  let mut out_bytes: Vec<u8> = Vec::new();
 
-    let grayscale = image.grayscale().to_luma8();
-    let dithered = apply_error_diffusion(grayscale, Dithering::floyd_steinberg());
+  let grayscale = image.grayscale().to_luma8();
+  let dithered = apply_error_diffusion(grayscale, Dithering::floyd_steinberg());
 
-    DynamicImage::ImageLuma8(dithered)
-        .write_to(&mut out_bytes, image::ImageOutputFormat::Png)
-        .unwrap();
+  DynamicImage::ImageLuma8(dithered)
+    .write_to(&mut out_bytes, image::ImageOutputFormat::Png)
+    .unwrap();
 
-    out_bytes
+  out_bytes
 }
 
 #[rocket::get("/comic")]
 async fn comic() -> Option<content::Custom<Vec<u8>>> {
-    let comic_strips = random_comic_strips().await;
-    if comic_strips.len() > 0 {
-        return Some(content::Custom(
-            ContentType::PNG,
-            png_image_data(&*comic_strips[0].comics[0].image().await),
-        ));
-    }
+  let comic_strips = random_comic_strips().await;
+  if comic_strips.len() > 0 {
+    return Some(content::Custom(
+      ContentType::PNG,
+      png_image_data(&*comic_strips[0].comics[0].image().await),
+    ));
+  }
 
-    return None;
+  return None;
 }
 
 #[rocket::get("/composition")]
 async fn comic_composition() -> Option<content::Custom<Vec<u8>>> {
-    return Some(content::Custom(
-        ContentType::PNG,
-        png_image_data(&create_composition_image().await),
-    ));
+  return Some(content::Custom(
+    ContentType::PNG,
+    png_image_data(&create_composition_image().await),
+  ));
 }
 
 #[rocket::get("/inkplate")]
 async fn comic_inkplate() -> Option<content::Custom<Vec<u8>>> {
-    return Some(content::Custom(
-        ContentType::PNG,
-        inkplate_image_data(&create_composition_image().await),
-    ));
+  return Some(content::Custom(
+    ContentType::PNG,
+    inkplate_image_data(&create_composition_image().await),
+  ));
 }
 
 static CONFIG: state::Storage<Config> = state::Storage::new();
@@ -109,27 +109,27 @@ static COLLECTION_ARC: state::Storage<Arc<Vec<Mutex<UserComicCollection>>>> = st
 
 #[tokio::main]
 async fn main() {
-    CONFIG.set(env_config());
-    TOKEN.set(access_token());
+  CONFIG.set(env_config());
+  TOKEN.set(access_token());
 
-    let mut user_collections = vec![];
+  let mut user_collections = vec![];
 
-    for twittername in CONFIG.get().twitter_usernames.iter() {
-        user_collections.push(Mutex::new(UserComicCollection::new(UserID::ScreenName(
-            twittername.into(),
-        ))));
-    }
+  for twittername in CONFIG.get().twitter_usernames.iter() {
+    user_collections.push(Mutex::new(UserComicCollection::new(UserID::ScreenName(
+      twittername.into(),
+    ))));
+  }
 
-    COLLECTION_ARC.set(Arc::new(user_collections));
+  COLLECTION_ARC.set(Arc::new(user_collections));
 
-    tokio::spawn(twitter_refresh_task(COLLECTION_ARC.get().clone()));
+  tokio::spawn(twitter_refresh_task(COLLECTION_ARC.get().clone()));
 
-    rocket::build()
-        .mount(
-            "/",
-            rocket::routes![comic, comic_composition, comic_inkplate],
-        )
-        .launch()
-        .await
-        .unwrap();
+  rocket::build()
+    .mount(
+      "/",
+      rocket::routes![comic, comic_composition, comic_inkplate],
+    )
+    .launch()
+    .await
+    .unwrap();
 }
