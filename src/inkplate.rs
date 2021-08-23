@@ -22,6 +22,7 @@ impl Dithering {
     }
   }
 
+	#[allow(dead_code)]
   #[inline(always)]
   pub fn jarvis_judice_ninke() -> Self {
     Dithering::new([
@@ -33,6 +34,7 @@ impl Dithering {
     ])
   }
 
+	#[allow(dead_code)]
   #[inline(always)]
   pub fn floyd_steinberg() -> Self {
     Dithering::new([
@@ -44,6 +46,7 @@ impl Dithering {
     ])
   }
 
+	#[allow(dead_code)]
   #[inline(always)]
   pub fn atkinson() -> Self {
     Dithering::new([
@@ -55,6 +58,7 @@ impl Dithering {
     ])
   }
 
+	#[allow(dead_code)]
   #[inline(always)]
   pub fn none() -> Self {
     Dithering::new([
