@@ -3,3 +3,5 @@
 .clang_complete
 .gcc-flags.json
 .pio
+
+src/wifi_config.h
