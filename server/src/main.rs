@@ -1,6 +1,7 @@
 mod composition;
 mod dithering;
 mod twitter;
+mod layout;
 
 use composition::create_composition_image;
 use egg_mode::user::UserID;
@@ -63,7 +64,7 @@ fn png_image_data(image: &DynamicImage) -> Vec<u8> {
 fn inkplate_png_image_data(image: &DynamicImage) -> Vec<u8> {
   let mut out_bytes: Vec<u8> = Vec::new();
 
-  let dithered = dithering::quantize_to_3bit(image, dithering::jarvis_judice_ninke());
+  let dithered = dithering::quantize_to_3bit(image, dithering::floyd_steinberg());
 
   DynamicImage::ImageLuma8(dithered)
     .write_to(&mut out_bytes, image::ImageOutputFormat::Png)
@@ -75,11 +76,6 @@ fn inkplate_png_image_data(image: &DynamicImage) -> Vec<u8> {
 #[inline(always)]
 fn is_odd(value: u32) -> bool {
   value & 0x1 == 0x1
-}
-
-#[inline(always)]
-fn is_even(value: u32) -> bool {
-  !is_odd(value)
 }
 
 fn inkplate_raw_image_data(image: &DynamicImage) -> Vec<u8> {
