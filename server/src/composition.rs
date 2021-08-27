@@ -4,15 +4,14 @@ use image::imageops::FilterType;
 use image::GenericImage;
 use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, Rgba};
 
-
 use crate::layout::{CalculateLayout, ColumnLayout, Layout, RowLayout, SingleLayout};
-use crate::{random_comic_strips};
+use crate::random_comic_strips;
 
 const COMPOSITION_WIDTH: f64 = 1200.0;
 const COMPOSITION_HEIGHT: f64 = 825.0;
 const COMPOSITION_MARGIN: f64 = 8.0;
 const COMPOSITION_SPLIT_MIN: f64 = 0.25;
-const COMPOSITION_BACKGROUND: Rgba<u8> = Rgba([255, 255, 255, 255]);
+const COMPOSITION_BACKGROUND: Rgba<u8> = Rgba([0, 0, 0, 255]);
 
 #[derive(Debug, Copy, Clone)]
 struct Rectangle {
@@ -62,14 +61,18 @@ pub async fn create_composition_image() -> DynamicImage {
       let secondary_image = secondary_strip.comics[0].image().await;
       let secondary_size = size_to_fit(
         &*secondary_image,
-        Size::new(COMPOSITION_WIDTH, COMPOSITION_HEIGHT- primary_size.h),
+        Size::new(COMPOSITION_WIDTH, COMPOSITION_HEIGHT - primary_size.h),
       );
       if filled_width + secondary_size.w <= COMPOSITION_WIDTH {
         secondary_images.push(secondary_image.clone());
         filled_width += secondary_size.w;
       }
     }
-    layout = Layout::from(RowLayout::new_with_margin(primary_image, secondary_images, COMPOSITION_MARGIN));
+    layout = Layout::from(RowLayout::new_with_margin(
+      primary_image,
+      secondary_images,
+      COMPOSITION_MARGIN,
+    ));
   } else if primary_size.w < COMPOSITION_WIDTH
     && COMPOSITION_WIDTH - primary_size.w > COMPOSITION_WIDTH * COMPOSITION_SPLIT_MIN
     && comic_strips.len() > 1
@@ -87,7 +90,11 @@ pub async fn create_composition_image() -> DynamicImage {
         filled_height += secondary_size.h;
       }
     }
-    layout = Layout::from(ColumnLayout::new_with_margin(primary_image, secondary_images, COMPOSITION_MARGIN));
+    layout = Layout::from(ColumnLayout::new_with_margin(
+      primary_image,
+      secondary_images,
+      COMPOSITION_MARGIN,
+    ));
   } else {
     layout = Layout::from(SingleLayout::new(primary_image.clone()));
   }
