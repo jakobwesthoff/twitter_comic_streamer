@@ -2,6 +2,7 @@ mod composition;
 mod dithering;
 mod layout;
 mod twitter;
+mod filter; 
 
 use composition::create_composition_image;
 use egg_mode::user::UserID;

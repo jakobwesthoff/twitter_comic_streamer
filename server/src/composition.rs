@@ -43,7 +43,7 @@ pub async fn create_composition_image() -> DynamicImage {
   assert!(comic_strips.len() > 0);
 
   let primary_strip = &comic_strips[0];
-  let primary_image = primary_strip.comics[0].image().await;
+  let primary_image = primary_strip.comics[0].image();
   let primary_size = size_to_fit(
     &*primary_image,
     Size::new(COMPOSITION_WIDTH, COMPOSITION_HEIGHT),
@@ -58,7 +58,7 @@ pub async fn create_composition_image() -> DynamicImage {
     let mut filled_width = 0.0;
     let mut secondary_images: Vec<Arc<DynamicImage>> = vec![];
     for secondary_strip in &comic_strips[1..] {
-      let secondary_image = secondary_strip.comics[0].image().await;
+      let secondary_image = secondary_strip.comics[0].image();
       let secondary_size = size_to_fit(
         &*secondary_image,
         Size::new(COMPOSITION_WIDTH, COMPOSITION_HEIGHT - primary_size.h),
@@ -80,7 +80,7 @@ pub async fn create_composition_image() -> DynamicImage {
     let mut filled_height = 0.0;
     let mut secondary_images: Vec<Arc<DynamicImage>> = vec![];
     for secondary_strip in &comic_strips[1..] {
-      let secondary_image = secondary_strip.comics[0].image().await;
+      let secondary_image = secondary_strip.comics[0].image();
       let secondary_size = size_to_fit(
         &*secondary_image,
         Size::new(COMPOSITION_WIDTH - primary_size.w, COMPOSITION_HEIGHT),

@@ -1,4 +1,5 @@
 use chrono::DateTime;
+use egg_mode::entities::MediaType;
 use egg_mode::tweet::Timeline;
 use egg_mode::user::UserID;
 use egg_mode::Token;
@@ -9,6 +10,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
+use crate::filter::{Filter, ImageFilter, TensorFlowFilter};
 use crate::{CONFIG, TOKEN};
 
 pub fn access_token() -> Token {
@@ -34,36 +36,16 @@ fn user_timeline(user_id: UserID) -> Timeline {
 #[derive(Debug, Clone)]
 pub struct Comic {
   pub url: String,
-  image: state::Storage<Arc<DynamicImage>>,
+  image: Arc<DynamicImage>,
 }
 
 impl Comic {
-  pub fn new(url: String) -> Self {
-    Comic {
-      url,
-      image: state::Storage::new(),
-    }
+  pub fn new(url: String, image: Arc<DynamicImage>) -> Self {
+    Comic { url, image }
   }
 
-  pub async fn image(&self) -> Arc<DynamicImage> {
-    if None == self.image.try_get() {
-      // This could essentially happen multiple times in parallel while
-      // loading is in progress. As it only would cause more than needed
-      // fetching and processing we ignore this case here.
-      // FIXME: Maybe use an RWLock?
-      println!("Fetching image: {}", self.url);
-      let response = reqwest::get(self.url.as_str()).await.unwrap();
-      let in_bytes = response.bytes().await.unwrap();
-      let img = image::io::Reader::new(Cursor::new(in_bytes))
-        .with_guessed_format()
-        .unwrap()
-        .decode()
-        .unwrap();
-
-      self.image.set(Arc::new(img));
-    }
-
-    self.image.get().clone()
+  pub fn image(&self) -> Arc<DynamicImage> {
+    self.image.clone()
   }
 }
 
@@ -82,7 +64,22 @@ pub struct UserComicCollection {
   pub max_amount: usize,
 }
 
+async fn fetch_image(url: String) -> DynamicImage {
+  println!(" -> {}", url);
+  let response = reqwest::get(url.as_str()).await.unwrap();
+  let in_bytes = response.bytes().await.unwrap();
+  let img = image::io::Reader::new(Cursor::new(in_bytes))
+    .with_guessed_format()
+    .unwrap()
+    .decode()
+    .unwrap();
+  img
+}
+
 async fn refresh_user_comic_collection(collection: &UserComicCollection) -> UserComicCollection {
+  // TODO: Inject from the outside and make configurable
+  let filter = ImageFilter::from(TensorFlowFilter::new());
+
   let timeline = user_timeline(collection.user_id.clone())
     //        .with_page_size(collection.max_amount as i32 * 3)
     .with_page_size(200)
@@ -102,16 +99,32 @@ async fn refresh_user_comic_collection(collection: &UserComicCollection) -> User
     if let Some(media) = &tweet.entities.media {
       let mut comics: Vec<Comic> = vec![];
       for entry in media {
-        let url = entry.media_url.clone();
-        println!(" -> {}", url);
-        comics.push(Comic::new(url));
-      }
-      comic_strips.push(Arc::new(ComicStrip {
-        id: tweet.id,
-        created_at: tweet.created_at,
-        comics,
-      }));
+        if entry.media_type != MediaType::Photo {
+          continue;
+        }
 
+        if entry.expanded_url.contains("/video/") {
+          // Skip every entry, which expanded_url has a /video/ segment.
+          // Unfortunately video thumbnails are presented with "media_type" photo :(
+          continue;
+        }
+
+        let url = entry.media_url.clone();
+        let image = Arc::new(fetch_image(url.clone()).await);
+        if filter.is_valid(image.clone()) {
+          comics.push(Comic::new(url.clone(), image));
+        }
+      }
+
+      if comics.len() > 0 {
+        comic_strips.push(Arc::new(ComicStrip {
+          id: tweet.id,
+          created_at: tweet.created_at,
+          comics,
+        }));
+      }
+
+      // Mark tweet as being processed.
       ids.push(tweet.id);
     }
   }
