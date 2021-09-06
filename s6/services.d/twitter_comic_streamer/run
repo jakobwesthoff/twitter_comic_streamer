@@ -1,0 +1,2 @@
+#!/usr/bin/with-contenv sh
+/app/twitter_comic_streamer
