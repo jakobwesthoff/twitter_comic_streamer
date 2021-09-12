@@ -9,12 +9,26 @@ RUN cd /home/rust/src && \
     cargo build --release && \
     find ./target -name "twitter_comic_streamer" -exec musl-strip {} \; 
 
-FROM alpine as run
+FROM debian:buster as run
 ARG S6_OVERLAY_INSTALLER
 
-RUN mkdir /app
-ADD ./server/twitter.env.sh /app/twitter.env.sh
-COPY --from=build /home/rust/src/target/*/release/twitter_comic_streamer /app/twitter_comic_streamer
+RUN mkdir -p /app /app/server /app/classifier
+COPY --from=build /home/rust/src/target/*/release/twitter_comic_streamer /app/server/twitter_comic_streamer
+
+RUN apt-get update && \
+    apt-get install -y curl gnupg && \
+    echo "deb https://packages.cloud.google.com/apt coral-edgetpu-stable main" >/etc/apt/sources.list.d/coral-edgetpu.list && \
+    curl https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add - && \
+    apt-get update && \
+    apt-get install -y python3-tflite-runtime && \
+    apt-get install -y python3-pip && \
+    apt-get install -y libz-dev libjpeg-dev && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN pip3 install flask pillow
+
+ADD ./classifier/* /app/classifier/
 
 ADD ${S6_OVERLAY_INSTALLER} /tmp/
 RUN chmod u+x /tmp/s6-overlay-*-installer && \

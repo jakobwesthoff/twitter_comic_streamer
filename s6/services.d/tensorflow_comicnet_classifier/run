@@ -1,0 +1,3 @@
+#!/usr/bin/with-contenv sh
+cd /app/classifier && \
+python3 ./app.py
