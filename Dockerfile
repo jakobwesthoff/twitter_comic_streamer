@@ -1,5 +1,5 @@
-ARG ARCH_TAG="armv7-musleabihf"
-ARG S6_OVERLAY_INSTALLER="https://github.com/just-containers/s6-overlay/releases/download/v2.2.0.3/s6-overlay-armhf-installer"
+ARG ARCH_TAG="aarch64-musl"
+ARG S6_OVERLAY_INSTALLER="https://github.com/just-containers/s6-overlay/releases/download/v2.2.0.3/s6-overlay-aarch64-installer"
 
 FROM messense/rust-musl-cross:${ARCH_TAG} as build
 
