@@ -10,8 +10,8 @@ use crate::random_comic_strips;
 const COMPOSITION_WIDTH: f64 = 1200.0;
 const COMPOSITION_HEIGHT: f64 = 825.0;
 const COMPOSITION_MARGIN: f64 = 8.0;
-const COMPOSITION_SPLIT_MIN: f64 = 0.25;
-const COMPOSITION_BACKGROUND: Rgba<u8> = Rgba([0, 0, 0, 255]);
+const COMPOSITION_SPLIT_MIN: f64 = 0.30;
+const COMPOSITION_BACKGROUND: Rgba<u8> = Rgba([255, 255, 255, 255]);
 
 #[derive(Debug, Copy, Clone)]
 struct Rectangle {
@@ -96,7 +96,7 @@ pub async fn create_composition_image() -> DynamicImage {
       COMPOSITION_MARGIN,
     ));
   } else {
-    layout = Layout::from(SingleLayout::new(primary_image.clone()));
+    layout = Layout::from(SingleLayout::new_with_margin(primary_image.clone(), COMPOSITION_MARGIN));
   }
 
   let mut target = ImageBuffer::from_pixel(
