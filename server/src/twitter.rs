@@ -10,7 +10,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
-use crate::filter::{Filter, ImageFilter, TensorFlowFilter};
+use crate::filter::{Filter, HttpClassifierFilter, ImageFilter};
 use crate::{CONFIG, TOKEN};
 
 pub fn access_token() -> Token {
@@ -78,7 +78,9 @@ async fn fetch_image(url: String) -> DynamicImage {
 
 async fn refresh_user_comic_collection(collection: &UserComicCollection) -> UserComicCollection {
   // TODO: Inject from the outside and make configurable
-  let filter = ImageFilter::from(TensorFlowFilter::new());
+  let filter = ImageFilter::from(HttpClassifierFilter::new(
+    CONFIG.get().http_classifier_url.clone(),
+  ));
 
   let timeline = user_timeline(collection.user_id.clone())
     //        .with_page_size(collection.max_amount as i32 * 3)
@@ -111,7 +113,7 @@ async fn refresh_user_comic_collection(collection: &UserComicCollection) -> User
 
         let url = entry.media_url.clone();
         let image = Arc::new(fetch_image(url.clone()).await);
-        if filter.is_valid(image.clone()) {
+        if filter.is_valid(image.clone()).await {
           comics.push(Comic::new(url.clone(), image));
         }
       }

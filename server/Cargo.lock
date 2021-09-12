@@ -1463,6 +1463,7 @@ dependencies = [
  "pin-project-lite",
  "rustls",
  "serde",
+ "serde_json",
  "serde_urlencoded",
  "tokio",
  "tokio-rustls",
@@ -2163,6 +2164,7 @@ checksum = "3e5d7cd7ab3e47dda6e56542f4bbf3824c15234958c6e1bd6aaa347e93499fdc"
 name = "twitter_comic_streamer"
 version = "0.1.0"
 dependencies = [
+ "async-trait",
  "cassowary",
  "chrono",
  "egg-mode",
