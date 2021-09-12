@@ -1,2 +1,4 @@
 #!/usr/bin/with-contenv sh
+s6-svwait /var/run/s6/services/tensorflow_comicnet_classifier
+sleep 5
 /app/server/twitter_comic_streamer

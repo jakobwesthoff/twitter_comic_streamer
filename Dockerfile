@@ -45,6 +45,7 @@ ADD s6/ /etc
 
 ENV TWITTER_USERNAMES=daskritzelt,erzaehlmirnix,islieb,isfies666,joschasauer,foxes_in_love,hauckundbauer
 ENV TWITTER_REFRESH_INTERVAL=600
+ENV HTTP_CLASSIFIER_URL="http://127.0.0.1:5000/classify"
 ENV ROCKET_ADDRESS="0.0.0.0"
 
 ENTRYPOINT [ "/init" ]
