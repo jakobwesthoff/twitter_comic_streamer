@@ -8,7 +8,7 @@
 #include "Inkplate.h"
 #include "driver/rtc_io.h"
 
-#include "battery.h";
+#include "battery.h"
 
 // WIFI config
 #include "wifi_config.h"
@@ -16,7 +16,7 @@
 // Conversion factor for micro seconds to seconds
 #define uS_TO_S_FACTOR 1000000
 // Time ESP32 will go to sleep (in seconds)
-#define TIME_TO_SLEEP 300
+#define TIME_TO_SLEEP 900
 
 Inkplate display(INKPLATE_3BIT);
 
@@ -58,7 +58,7 @@ void setup()
     ESP.restart();
   }
 
-  size_t received = http_request("http://192.168.178.49:8000/comic/inkplate", buffer, buffer_size);
+  size_t received = http_request("http://192.168.178.3:8000/comic/inkplate", buffer, buffer_size);
 
   log_d("Received bytes %d, expected %d", received, buffer_size - 1);
 
