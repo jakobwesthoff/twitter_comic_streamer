@@ -3,13 +3,14 @@ use std::sync::Arc;
 use cassowary::strength::{MEDIUM, REQUIRED, STRONG};
 use cassowary::WeightedRelation::*;
 use cassowary::{Solver, Variable};
-use image::{DynamicImage, GenericImageView};
+
+use crate::comic_image::ComicImage;
 
 const MAX_WIDTH: f64 = 1200.0;
 const MAX_HEIGHT: f64 = 825.0;
 
 #[inline(always)]
-fn aspect_ratio(image: &Arc<DynamicImage>) -> f64 {
+fn aspect_ratio(image: &Arc<ComicImage>) -> f64 {
   let (width, height) = image.dimensions();
   width as f64 / height as f64
 }
@@ -55,7 +56,7 @@ impl<'a> ConstrainedBox<'a> {
 }
 
 pub struct DrawingInstruction {
-  pub image: Arc<DynamicImage>,
+  pub image: Arc<ComicImage>,
   pub x: u32,
   pub y: u32,
   pub w: u32,
@@ -63,7 +64,7 @@ pub struct DrawingInstruction {
 }
 
 impl DrawingInstruction {
-  pub fn new(image: Arc<DynamicImage>, constrained_box: &ConstrainedBox) -> Self {
+  pub fn new(image: Arc<ComicImage>, constrained_box: &ConstrainedBox) -> Self {
     DrawingInstruction {
       image,
       x: constrained_box.x().floor() as u32,
@@ -80,19 +81,19 @@ pub trait CalculateLayout {
 
 pub struct SingleLayout {
   margin: f64,
-  primary: Arc<DynamicImage>,
+  primary: Arc<ComicImage>,
 }
 
 pub struct ColumnLayout {
   margin: f64,
-  primary: Arc<DynamicImage>,
-  secondary: Vec<Arc<DynamicImage>>,
+  primary: Arc<ComicImage>,
+  secondary: Vec<Arc<ComicImage>>,
 }
 
 pub struct RowLayout {
   margin: f64,
-  primary: Arc<DynamicImage>,
-  secondary: Vec<Arc<DynamicImage>>,
+  primary: Arc<ComicImage>,
+  secondary: Vec<Arc<ComicImage>>,
 }
 
 pub enum Layout {
@@ -103,12 +104,12 @@ pub enum Layout {
 
 impl SingleLayout {
   #[allow(dead_code)]
-  pub fn new(primary: Arc<DynamicImage>) -> Self {
+  pub fn new(primary: Arc<ComicImage>) -> Self {
     Self::new_with_margin(primary, 0.0)
   }
 
   #[allow(dead_code)]
-  pub fn new_with_margin(primary: Arc<DynamicImage>, margin: f64) -> Self {
+  pub fn new_with_margin(primary: Arc<ComicImage>, margin: f64) -> Self {
     SingleLayout { primary, margin }
   }
 }
@@ -155,14 +156,14 @@ impl CalculateLayout for SingleLayout {
 
 impl ColumnLayout {
   #[allow(dead_code)]
-  pub fn new(primary: Arc<DynamicImage>, secondary: Vec<Arc<DynamicImage>>) -> Self {
+  pub fn new(primary: Arc<ComicImage>, secondary: Vec<Arc<ComicImage>>) -> Self {
     ColumnLayout::new_with_margin(primary, secondary, 0.0)
   }
 
   #[allow(dead_code)]
   pub fn new_with_margin(
-    primary: Arc<DynamicImage>,
-    secondary: Vec<Arc<DynamicImage>>,
+    primary: Arc<ComicImage>,
+    secondary: Vec<Arc<ComicImage>>,
     margin: f64,
   ) -> Self {
     ColumnLayout {
@@ -313,14 +314,14 @@ impl CalculateLayout for ColumnLayout {
 
 impl RowLayout {
   #[allow(dead_code)]
-  pub fn new(primary: Arc<DynamicImage>, secondary: Vec<Arc<DynamicImage>>) -> Self {
+  pub fn new(primary: Arc<ComicImage>, secondary: Vec<Arc<ComicImage>>) -> Self {
     Self::new_with_margin(primary, secondary, 0.0)
   }
 
   #[allow(dead_code)]
   pub fn new_with_margin(
-    primary: Arc<DynamicImage>,
-    secondary: Vec<Arc<DynamicImage>>,
+    primary: Arc<ComicImage>,
+    secondary: Vec<Arc<ComicImage>>,
     margin: f64,
   ) -> Self {
     Self {

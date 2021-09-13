@@ -13,7 +13,6 @@ FROM debian:buster as run
 ARG S6_OVERLAY_INSTALLER
 
 RUN mkdir -p /app /app/server /app/classifier
-COPY --from=build /home/rust/src/target/*/release/twitter_comic_streamer /app/server/twitter_comic_streamer
 
 RUN apt-get update && \
     apt-get install -y curl gnupg && \
@@ -36,6 +35,9 @@ RUN chmod u+x /tmp/s6-overlay-*-installer && \
     rm -rf /tmp/s6-overlay-*-installer
 
 ADD s6/ /etc
+
+# Copy over this late, to properly use cache and parallel building
+COPY --from=build /home/rust/src/target/*/release/twitter_comic_streamer /app/server/twitter_comic_streamer
 
 ## Needs to be set to run the container
 # ENV CONSUMER_KEY

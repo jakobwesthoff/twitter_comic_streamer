@@ -10,6 +10,7 @@ use std::time::Duration;
 use tokio::sync::Mutex;
 use tokio::time::sleep;
 
+use crate::comic_image::ComicImage;
 use crate::filter::{Filter, HttpClassifierFilter, ImageFilter};
 use crate::{CONFIG, TOKEN};
 
@@ -36,15 +37,15 @@ fn user_timeline(user_id: UserID) -> Timeline {
 #[derive(Debug, Clone)]
 pub struct Comic {
   pub url: String,
-  image: Arc<DynamicImage>,
+  image: Arc<ComicImage>,
 }
 
 impl Comic {
-  pub fn new(url: String, image: Arc<DynamicImage>) -> Self {
+  pub fn new(url: String, image: Arc<ComicImage>) -> Self {
     Comic { url, image }
   }
 
-  pub fn image(&self) -> Arc<DynamicImage> {
+  pub fn image(&self) -> Arc<ComicImage> {
     self.image.clone()
   }
 }
@@ -112,7 +113,8 @@ async fn refresh_user_comic_collection(collection: &UserComicCollection) -> User
         }
 
         let url = entry.media_url.clone();
-        let image = Arc::new(fetch_image(url.clone()).await);
+        let image = Arc::new(ComicImage::from(fetch_image(url.clone()).await));
+
         if filter.is_valid(image.clone()).await {
           comics.push(Comic::new(url.clone(), image));
         }

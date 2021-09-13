@@ -1,6 +1,6 @@
 [package]
 name = "twitter_comic_streamer"
-version = "0.1.0"
+version = "1.1.0"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -24,6 +24,6 @@ async-trait = "0.1.51"
 
 [profile.release]
 panic = "abort"
-# lto = true
-# codegen-units = 1
-# incremental = false
+lto = true
+codegen-units = 1
+incremental = false

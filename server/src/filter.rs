@@ -1,13 +1,12 @@
 use async_trait::async_trait;
-use image::DynamicImage;
 use serde::Deserialize;
 use std::sync::Arc;
 
-use crate::image_data;
+use crate::comic_image::ComicImage;
 
 #[async_trait]
 pub trait Filter {
-  async fn is_valid(&self, image: Arc<DynamicImage>) -> bool;
+  async fn is_valid(&self, image: Arc<ComicImage>) -> bool;
 }
 
 pub enum ImageFilter {
@@ -16,7 +15,7 @@ pub enum ImageFilter {
 
 #[async_trait]
 impl Filter for ImageFilter {
-  async fn is_valid(&self, image: Arc<DynamicImage>) -> bool {
+  async fn is_valid(&self, image: Arc<ComicImage>) -> bool {
     match self {
       ImageFilter::HttpClassifier(ref filter) => filter.is_valid(image).await,
     }
@@ -47,9 +46,9 @@ struct Classification {
 
 #[async_trait]
 impl Filter for HttpClassifierFilter {
-  async fn is_valid(&self, image: Arc<DynamicImage>) -> bool {
+  async fn is_valid(&self, image: Arc<ComicImage>) -> bool {
     let client = reqwest::Client::new();
-    let request = client.post(self.url.as_str()).body(image_data::png(&image));
+    let request = client.post(self.url.as_str()).body(image.png_image());
     if let Ok(response) = request.send().await {
       if let Ok(classification) = response.json::<Classification>().await {
         println!(

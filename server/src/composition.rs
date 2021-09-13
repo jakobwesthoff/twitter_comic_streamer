@@ -4,6 +4,7 @@ use image::imageops::FilterType;
 use image::GenericImage;
 use image::{imageops, DynamicImage, GenericImageView, ImageBuffer, Rgba};
 
+use crate::comic_image::ComicImage;
 use crate::layout::{CalculateLayout, ColumnLayout, Layout, RowLayout, SingleLayout};
 use crate::random_comic_strips;
 
@@ -34,7 +35,7 @@ impl Size {
 }
 
 struct DrawingInstruction {
-  image: Arc<DynamicImage>,
+  image: Arc<ComicImage>,
   area: Rectangle,
 }
 
@@ -56,7 +57,7 @@ pub async fn create_composition_image() -> DynamicImage {
     && comic_strips.len() > 1
   {
     let mut filled_width = 0.0;
-    let mut secondary_images: Vec<Arc<DynamicImage>> = vec![];
+    let mut secondary_images: Vec<Arc<ComicImage>> = vec![];
     for secondary_strip in &comic_strips[1..] {
       let secondary_image = secondary_strip.comics[0].image();
       let secondary_size = size_to_fit(
@@ -78,7 +79,7 @@ pub async fn create_composition_image() -> DynamicImage {
     && comic_strips.len() > 1
   {
     let mut filled_height = 0.0;
-    let mut secondary_images: Vec<Arc<DynamicImage>> = vec![];
+    let mut secondary_images: Vec<Arc<ComicImage>> = vec![];
     for secondary_strip in &comic_strips[1..] {
       let secondary_image = secondary_strip.comics[0].image();
       let secondary_size = size_to_fit(
@@ -117,14 +118,15 @@ pub async fn create_composition_image() -> DynamicImage {
   });
 
   for instr in instructions {
-    resize_and_overlay(&mut target, &*instr.image, instr.area);
+    resize_and_overlay(&mut target, &instr.image.dynamic_image(), instr.area);
   }
 
   DynamicImage::ImageRgba8(target)
-}
+ }
 
-fn size_to_fit<I: GenericImageView>(image: &I, max_size: Size) -> Size {
-  let (width, height) = image.dimensions();
+fn size_to_fit(image: &ComicImage, max_size: Size) -> Size {
+  let width = image.width();
+  let height = image.height();
   let aspect_ratio: f64 = width as f64 / height as f64;
 
   let max_width = max_size.w;

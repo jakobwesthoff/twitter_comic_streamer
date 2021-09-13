@@ -3,6 +3,7 @@ mod dithering;
 mod layout;
 mod twitter;
 mod filter;
+mod comic_image;
 mod image_data;
 
 use composition::create_composition_image;
