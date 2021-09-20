@@ -1,0 +1,3 @@
+Flask>=2.0.0
+Pillow>=8.0.0
+tflite-runtime>=2.5.0.post1
